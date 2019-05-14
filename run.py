@@ -6,7 +6,7 @@ import time
 
 from darkflow.net.build import TFNet
 
-options = {"model": "cfg/sunflower.cfg", "load": -1, "threshold": 0.05, "gpu": 1.0}
+options = {"model": "cfg/sunflower.cfg", "load": -1, "threshold": 0.15, "gpu": 1.0}
 tfnet = TFNet(options)
 # isSunflower = False
 
@@ -18,8 +18,10 @@ globalPause = False
 def moveLightDirection(direction):
     if (direction == "right"):
         roll = 20
+        yaw = 2
     else:
         roll = -20
+        yaw = -2
     bebop.fly_direct(roll=roll, pitch=0, yaw=0, vertical_movement=0, duration=(0.5)) 
 
 def moveDirection(direction, time, repetitions):
@@ -61,9 +63,9 @@ def checkWait():
     while(globalPause == True):
         # Wait
         pass
+        # bebop.smart_sleep(60)
 
-
-
+        
 
 class UserVision:
     def __init__(self, vision):
@@ -84,33 +86,24 @@ class UserVision:
             
             print("Found Sunflower")
             
-
             # Use the sunflower with the highest confidence
-            try:
-                (topConfidence, topLeftX, _, _, _) = getHighestConfidence(result)
-            except:
-                img = self.vision.get_latest_valid_picture()
-                cv2.imwrite("image.jpg", img)
-
-                imgcv2 = cv2.imread("image.jpg")
-                rescaled = rescale_frame(imgcv2, percent=50)
-                result = tfnet.return_predict(rescaled)
-
-                (topConfidence, topLeftX, _, _, _) = getHighestConfidence(result)
-                print(topLeftX, topConfidence)
-                (topConfidence, topLeftX, _, _, _) = getHighestConfidence(result)
+            (topConfidence, topLeftX, _, _, _) = getHighestConfidence(result)
             print(topLeftX, topConfidence)
             inMiddle = False
             
-            # globalPause = True
+            global globalPause
+            globalPause = True
             # tempCount = 1
+            print("Flying down")
+            bebop.fly_direct(roll=0, pitch=0, yaw=0, vertical_movement=-4, duration=4)
+            bebop.smart_sleep(5)
 
             while (inMiddle == False):
                 if(int(topLeftX) < 300):
                     print("Moving Left")
                     moveDirection("left", 3, 1)
                     bebop.smart_sleep(4)
-                elif(int(topLeftX) > 400):
+                elif(int(topLeftX) > 350):
                     print("Moving Right")
                     moveDirection("right", 3, 1)
                     bebop.smart_sleep(4)
@@ -125,20 +118,25 @@ class UserVision:
                 rescaled = rescale_frame(imgcv2, percent=50)
                 result = tfnet.return_predict(rescaled)
 
-                (topConfidence, topLeftX, _, _, _) = getHighestConfidence(result)
-                print(topLeftX, topConfidence)
+                # (topConfidence, topLeftX, _, _, _) = getHighestConfidence(result)
+                # Function is not called as it can give code execution order error
+                # TODO: Fix this
+                topConfidence = 0
+                bebop.smart_sleep(2)
+                print ("Command:")
+                for i in range(0, len(result)):
+                    if(result[i]["confidence"] > topConfidence):
+                        topConfidence = result[i]["confidence"]
+                        topLeftX = result[i]["topleft"]["x"]
+                        print(topLeftX, topConfidence)
 
             done = False
             if (inMiddle == True):
                 while(done == False):
-                    print("Flying down")
-                    bebop.fly_direct(roll=0, pitch=0, yaw=0, vertical_movement=-4, duration=4)
-                    bebop.smart_sleep(5)
-
                     print("Flying forward")
-                    bebop.fly_direct(roll=0, pitch=10, yaw=0, vertical_movement=0, duration=4)
+                    bebop.fly_direct(roll=0, pitch=10, yaw=0, vertical_movement=0, duration=3)
                     bebop.smart_sleep(5)
-                    bebop.fly_direct(roll=0, pitch=10, yaw=0, vertical_movement=0, duration=4)
+                    bebop.fly_direct(roll=0, pitch=10, yaw=0, vertical_movement=0, duration=3)
                     bebop.smart_sleep(5)
                 
                     # print("Flying back")
@@ -150,6 +148,7 @@ class UserVision:
                     bebop.smart_sleep(5)
 
                     done = True
+                globalPause = False
                 
 
             
@@ -179,8 +178,8 @@ class UserVision:
 
             # print(topConfidence, topLeftX, topLeftY, bottomRightX, bottomRightY)
             # bebop.pan_tilt_camera_velocity(pan_velocity=0, tilt_velocity=6, duration=4)
-            bebop.safe_land(10)
-            bebopVision.close_video()
+            # bebop.safe_land(10)
+            # bebopVision.close_video()
             # isSunflower = True
 
 
@@ -214,42 +213,33 @@ if (success):
 
         print("Moving the camera using velocity")
         # bebop.pan_tilt_camera_velocity(pan_velocity=0, tilt_velocity=-6, duration=4)
-
-        # counter = 0
-        # while(isSunflower == False):
-        #     bebop.fly_direct(roll=0, pitch=20, yaw=0, vertical_movement=0, duration=3)
-        #     bebop.smart_sleep(2)
-        #     counter = counter + 1
-        #     if(counter == 6):
-        #         isSunflower = True
-        #         print("Time ran out")
         
         total = 2 #Number of times grid searching is done
         globalCounter = 0 #Temporary counter
         amount = 8 #Number of seconds we fly total per direction
         repetitions = 4
 
-        # while (globalCounter < total):
-        #     checkWait()
-        #     moveDirection("right", amount, repetitions)
+        while (globalCounter < total):
+            checkWait()
+            moveDirection("right", amount, repetitions)
 
-        #     checkWait()
-        #     goForward()
+            checkWait()
+            goForward()
 
-        #     checkWait()
-        #     moveDirection("left", amount, repetitions)
+            checkWait()
+            moveDirection("left", amount, repetitions)
 
-        #     checkWait()
-        #     goForward()
+            checkWait()
+            goForward()
 
-        #     globalCounter = globalCounter + 1
+            globalCounter = globalCounter + 1
 
         # while(globalCounter < total):
         #     checkWait()
         #     bebop.smart_sleep(3)
 
         
-        bebop.smart_sleep(60)
+        bebop.smart_sleep(180)
         
         bebop.safe_land(10)
         print("Stopping vision")
